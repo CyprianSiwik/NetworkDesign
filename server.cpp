@@ -8,7 +8,7 @@
 #define PACKET_SIZE 1024
 
 void receiveFile(SOCKET serverSocket, sockaddr_in clientAddr) {
-    std::ofstream file("received_image.bmp", std::ios::binary);
+    std::ofstream file("SentImage.bmp", std::ios::binary);
     if (!file) {
         std::cerr << "Error: Could not create file\n";
         return;
