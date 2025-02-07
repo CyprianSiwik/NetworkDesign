@@ -1,26 +1,54 @@
-//main cpp file
 #include <iostream>
+#include <fstream>
 #include <winsock2.h>
 
-#pragma comment(lib, "ws2_32.lib") // Link with ws2_32.lib
+#pragma comment(lib, "ws2_32.lib")
 
 #define SERVER_PORT 8080
-#define BUFFER_SIZE 1024
+#define PACKET_SIZE 1024
+
+void receiveFile(SOCKET serverSocket, sockaddr_in clientAddr) {
+    std::ofstream file("received_image.bmp", std::ios::binary);
+    if (!file) {
+        std::cerr << "Error: Could not create file\n";
+        return;
+    }
+
+    char buffer[PACKET_SIZE];
+    int clientAddrSize = sizeof(clientAddr);
+    int bytesReceived;
+
+    std::cout << "Receiving file...\n";
+
+    while ((bytesReceived = recvfrom(serverSocket, buffer, PACKET_SIZE, 0, (sockaddr*)&clientAddr, &clientAddrSize)) > 0) {
+        file.write(buffer, bytesReceived);
+    }
+
+    std::cout << "File received successfully.\n";
+    file.close();
+}
+
+void receiveMessage(SOCKET serverSocket, sockaddr_in clientAddr) {
+    char buffer[PACKET_SIZE];
+    int clientAddrSize = sizeof(clientAddr);
+
+    int bytesReceived = recvfrom(serverSocket, buffer, PACKET_SIZE, 0, (sockaddr*)&clientAddr, &clientAddrSize);
+    if (bytesReceived > 0) {
+        buffer[bytesReceived] = '\0';
+        std::cout << "Received message: " << buffer << std::endl;
+
+        // Echo back the message
+        sendto(serverSocket, buffer, bytesReceived, 0, (sockaddr*)&clientAddr, clientAddrSize);
+    }
+}
 
 int main() {
     WSADATA wsaData;
     SOCKET serverSocket;
     sockaddr_in serverAddr, clientAddr;
-    char buffer[BUFFER_SIZE];
-    int clientAddrSize = sizeof(clientAddr);
 
-    // Initialize Winsock
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "WSAStartup failed\n";
-        return 1;
-    }
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-    // Create socket
     serverSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (serverSocket == INVALID_SOCKET) {
         std::cerr << "Socket creation failed\n";
@@ -28,34 +56,30 @@ int main() {
         return 1;
     }
 
-    // Bind socket
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(SERVER_PORT);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "Bind failed\n";
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
+    bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
+
+    std::cout << "Server is running. Waiting for data...\n";
+
+    while (true) {
+        char buffer[PACKET_SIZE];
+        sockaddr_in clientAddr;
+        int clientAddrSize = sizeof(clientAddr);
+        int bytesReceived = recvfrom(serverSocket, buffer, PACKET_SIZE, MSG_PEEK, (sockaddr*)&clientAddr, &clientAddrSize);
+
+        if (bytesReceived > 0) {
+            if (bytesReceived < PACKET_SIZE) {
+                receiveMessage(serverSocket, clientAddr);
+            }
+            else {
+                receiveFile(serverSocket, clientAddr);
+            }
+        }
     }
 
-    std::cout << "UDP Server is running on port " << SERVER_PORT << "...\n";
-
-    // Receive message
-    int bytesReceived = recvfrom(serverSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, &clientAddrSize);
-    if (bytesReceived == SOCKET_ERROR) {
-        std::cerr << "Receive failed\n";
-    }
-    else {
-        buffer[bytesReceived] = '\0'; // Null-terminate the received message
-        std::cout << "Received: " << buffer << std::endl;
-
-        // Echo message back to client
-        sendto(serverSocket, buffer, bytesReceived, 0, (sockaddr*)&clientAddr, clientAddrSize);
-    }
-
-    // Cleanup
     closesocket(serverSocket);
     WSACleanup();
     return 0;
