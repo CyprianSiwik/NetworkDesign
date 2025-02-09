@@ -80,7 +80,7 @@ int main() {
         }
     }
 
-    closesocket(serverSocket);
+    closesocket(serverSocket); 
     WSACleanup();
     return 0;
 }
