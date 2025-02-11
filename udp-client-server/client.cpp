@@ -7,7 +7,7 @@
 #define SERVER_PORT 8080 //port number on which server listens, client sends data to this port
 #define CLIENT_PORT 9090 //clients local port number, client uses this port to send and receive data
 #define SERVER_IP "127.0.0.1" //servers IP address, local host, client sends data to this IP
-#define PACKET_SIZE 1024 // defines packet size for file transmission in bytes. controls how large each chunk of the file will be when sent using the UDP protocol
+#define PACKET_SIZE 1024 //defines packet size for file transmission in bytes. controls how large each chunk of the file will be when sent using the UDP protocol
 
 
 // sendMessage function - sends a message from client to the server
