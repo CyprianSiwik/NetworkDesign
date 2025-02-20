@@ -1,3 +1,8 @@
+//Cyprian Siwik Network Design
+//This code is for phase 1 of the programming project
+//This is the client code, it tasks the user to  exit, send a message and display that a message has been echoed, and send a bmp file in packets over to the server
+//File paths should be entered as a full path with no quotation marks around them, does not have to be a raw string. If still having issues try escaping the slashes (/) in the path and use (//)
+
 #include <iostream> 
 #include <fstream> //file stream support
 #include <winsock2.h> //header for windows sockets API, lets me develop compile and run in windows with no linux
@@ -35,6 +40,12 @@ void sendMessage(SOCKET clientSocket, sockaddr_in serverAddr) {
     }
 }
 
+// Function to read a file chunk into a buffer
+int MakePacket(std::ifstream& file, char* buffer, int bufferSize) {
+    file.read(buffer, bufferSize);  // Read up to bufferSize bytes
+    return file.gcount();  // Return the actual number of bytes read
+}
+
 // handles sending a bmp file from client to server
 void sendFile(SOCKET clientSocket, sockaddr_in serverAddr) { //sends file - client socket to server socket
     char filename[100]; // buffer to store the file name input
@@ -51,12 +62,23 @@ void sendFile(SOCKET clientSocket, sockaddr_in serverAddr) { //sends file - clie
     char buffer[PACKET_SIZE];
     int bytesRead;
 
-    while (!file.eof()) { // while not end of file for user file, reads until finished
-        file.read(buffer, PACKET_SIZE); // reads (PACKET_SIZE) bytes from the file into the buffer
-        bytesRead = file.gcount();
-        sendto(clientSocket, buffer, bytesRead, 0, (sockaddr*)&serverAddr, sizeof(serverAddr)); // sends the data in buffer - the size of one packet - to the server address
-        Sleep(4); // small delay
+    // Send file data in chunks
+    while ((bytesRead = MakePacket(file, buffer, PACKET_SIZE)) > 0) {
+        sendto(clientSocket, buffer, bytesRead, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
     }
+
+    // Send EOF packet (a special termination message)
+    const char* EOF_SIGNAL = "EOF";
+    sendto(clientSocket, EOF_SIGNAL, strlen(EOF_SIGNAL), 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
+
+
+
+    //while (!file.eof()) { // while not end of file for user file, reads until finished
+      //  file.read(buffer, PACKET_SIZE); // reads (PACKET_SIZE) bytes from the file into the buffer
+        //bytesRead = file.gcount();
+        //sendto(clientSocket, buffer, bytesRead, 0, (sockaddr*)&serverAddr, sizeof(serverAddr)); // sends the data in buffer - the size of one packet - to the server address
+        //Sleep(1); // small delay
+    //}
 
     std::cout << "File transfer complete.\n";
     file.close(); // closes file stream
@@ -86,24 +108,33 @@ int main() {
     serverAddr.sin_port = htons(SERVER_PORT); // specifies the server port
     serverAddr.sin_addr.s_addr = inet_addr(SERVER_IP); // convert the IP address string into a binary format
 
-    int choice; // initialize choice int to be used for options
-    std::cout << "Choose operation:\n";
-    std::cout << "1 - Send Message (Phase 1a)\n";
-    std::cout << "2 - Send BMP File (Phase 1b)\n";
-    std::cout << "Enter choice: ";
-    std::cin >> choice; // reads in int value and assigns to the elseif tree below
+    int choice = -1; // initialize choice int to be used for options, makes sure we have no wonky things happening by setting it to an unused value initially
 
-    if (choice == 1) { // if int choice == 1 send message and prompt for the message
-        sendMessage(clientSocket, serverAddr); // calls sendMessage function
-    }
-    else if (choice == 2) { // if int choice == 2 send file and prompt for file path
-        sendFile(clientSocket, serverAddr); // calls sendFile function
-    }
-    else { // error if choice is not valid
-        std::cout << "Invalid choice. Exiting...\n";
+    while (choice != 0) {
+        std::cout << "Choose operation:\n";
+        std::cout << "0 - Exit Program\n";
+        std::cout << "1 - Send Message (Phase 1a)\n";
+        std::cout << "2 - Send BMP File (Phase 1b)\n";
+        std::cout << "Enter choice: ";
+        std::cin >> choice; // reads in int value and assigns to the elseif tree below
+
+        if (choice == 1) { // if int choice == 1 send message and prompt for the message
+            sendMessage(clientSocket, serverAddr); // calls sendMessage function
+        }
+        else if (choice == 2) { // if int choice == 2 send file and prompt for file path
+            sendFile(clientSocket, serverAddr); // calls sendFile function
+        }
+        else if (choice == 0) { //break out and exit the program after cleanup
+            break;
+        }
+        else { // error if choice is not valid
+            std::cout << "Invalid choice. Exiting...\n";
+        }
+
     }
 
     closesocket(clientSocket); // closes socket after use
     WSACleanup(); // cleans up windows sockets library before the program ends.
     return 0; // exit file
 }
+  
